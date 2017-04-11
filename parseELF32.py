@@ -64,20 +64,72 @@ if binary is None:
 
 
 class ELFFlags(object):
-    ELF_CLASS = 0x4
-    ELF_CLASS_32 = 0x1
-    ELF_CLASS_64 = 0x2
+    ELF_CLASS        =  0x4
+    ELF_DATA         =  0x5
+    ELF_MACHINE      = 0x12
+    EI_CLASS_32      =  0x1
+    EI_CLASS_64      =  0x2
+    EI_DATA_Little   =  0x1
+    EI_DATA_Big      =  0x2
+    EI_MACHINE_x86   =  0x3
+    EI_MACHINE_MIPS  =  0x8
+    EI_MACHINE_ARM   = 0x28
+    EI_MACHINE_IA64  = 0x32
+    EI_MACHINE_x8664 = 0x3E
+
 
 class ELF(object):
     def __init__(self, binary):
         self.__binary = bytearray(binary)
-        self.parseHeader()
+        self.__parseHeader()
 
-    def parseHeader(self):
-        self.e_ident = self.__binary[:16]
-        if self.e_ident[ELFFlags.ELF_CLASS] == ELFFlags.ELF_CLASS_32:
+    def __parseHeader(self):
+        self.__parse_e_ident()
+        self.__setArch()
+        print "Arch is %s" % self.Arch
+
+    def __parse_e_ident(self):
+
+        # check whether is ELF file
+        e_ident = self.__binary[:16]
+        if e_ident[1:4] != "ELF":
+            return False
+
+        # check is 32 bit or 64 bit
+        if e_ident[ELFFlags.ELF_CLASS] == ELFFlags.EI_CLASS_32:
+            #print "This is 32 bit ELF file"
             self.__Header = ELF32_Little.from_buffer_copy(self.__binary)
-            print self.__Header.e_ident[:-1]
-            print len(self.__Header.e_ident)
+
+        elif e_ident[ELFFlags.ELF_CLASS] == ELFFlags.EI_CLASS_64:
+            print "This is 64 bit ELF file"
+
+        # choose how to parse binary
+        # 32 bit little endian
+        if e_ident[ELFFlags.ELF_CLASS] == ELFFlags.EI_CLASS_32 \
+            and e_ident[ELFFlags.ELF_DATA] == ELFFlags.EI_DATA_Little:
+            self.__Header = ELF32_Little.from_buffer_copy(self.__binary)
+            print "32 bit little endian ELF file"
+
+        # 32 bit big endian
+        elif e_ident[ELFFlags.ELF_CLASS] == ELFFlags.EI_CLASS_32 \
+            and e_ident[ELFFlags.ELF_DATA] == ELFFlags.EI_DATA_Big:
+            self._Header = ELF32_Big.from_buffer_copy(self.__binary)
+            print "32 bit endian ELF file"
+
+    def __setArch(self):
+        machine_code = self.__Header.e_machine
+        arch = {
+                  0x3  :   "x86",   
+                  0x8  :   "MIPS",  
+                  0x28 :   "ARM",   
+                  0x32 :   "IA64",  
+                  0x3E :   "x86-64"
+                }
+        self.__Arch = arch.setdefault(machine_code, "unknow")
+        #print "Arch is %s" %  self.__Arch
+    
+    @property
+    def Arch(self):
+        return self.__Arch
 
 elf = ELF(binary)
