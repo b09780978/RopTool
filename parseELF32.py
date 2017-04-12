@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import sys
 from ctypes import *
+from capstone import *
 import argparse
 
 parser = argparse.ArgumentParser(description="ELF parser tool is use to parse ELF 32 bit file")
@@ -20,9 +21,11 @@ except IOError:
     binary = None
 f.close()
 
+"""define format of Header"""
+
 # define elf file header(32bit)
 # from https://en.wikipedia.org/wiki/Executable_and_Linkable_Format
-class ELF32_Little(LittleEndianStructure):
+class ELF32_Little_FH(LittleEndianStructure):
     _fields_ = [
             ("e_ident", c_ubyte * 16),
             ("e_type", c_ushort),
@@ -40,7 +43,7 @@ class ELF32_Little(LittleEndianStructure):
             ("e_shstrndx", c_ushort),
             ]
 
-class ELF32_Big(BigEndianStructure):
+class ELF32_Big_FH(BigEndianStructure):
     _fields_ = [
             ("e_ident", c_ubyte * 16),
             ("e_type", c_ushort),
@@ -56,6 +59,58 @@ class ELF32_Big(BigEndianStructure):
             ("e_shentsize", c_ushort),
             ("e_shnum", c_ushort),
             ("e_shstrndx", c_ushort),
+            ]
+
+class ELF32_Little_PH(LittleEndianStructure):
+    _fields_ = [
+            ("p_type", c_uint),
+            ("p_offset", c_uint),
+            ("p_vaddr", c_uint),
+            ("p_paddr", c_uint),
+            ("p_filesz", c_uint),
+            ("p_memsz", c_uint),
+            ("p_flags", c_uint),
+            ("p_align", c_uint)
+            ]
+
+class ELF32_Big_PH(BigEndianStructure):
+    _fields_ = [
+            ("p_type", c_uint),
+            ("p_offset", c_uint),
+            ("p_vaddr", c_uint),
+            ("p_paddr", c_uint),
+            ("p_filesz", c_uint),
+            ("p_memsz", c_uint),
+            ("p_flags", c_uint),
+            ("p_align", c_uint)
+            ]
+
+class ELF32_Little_SH(LittleEndianStructure):
+    _fields_ = [
+            ("sh_name", c_uint),
+            ("sh_type", c_uint),
+            ("sh_flags", c_uint),
+            ("sh_addr", c_uint),
+            ("sh_offset", c_uint),
+            ("sh_size", c_uint),
+            ("sh_link", c_uint),
+            ("sh_info", c_uint),
+            ("sh_addralign", c_uint),
+            ("sh_entsize", c_uint)
+            ]
+
+class ELF32_Big_SH(BigEndianStructure):
+    _fields_ = [
+            ("sh_name", c_uint),
+            ("sh_type", c_uint),
+            ("sh_flags", c_uint),
+            ("sh_addr", c_uint),
+            ("sh_offset", c_uint),
+            ("sh_size", c_uint),
+            ("sh_link", c_uint),
+            ("sh_info", c_uint),
+            ("sh_addralign", c_uint),
+            ("sh_entsize", c_uint)
             ]
 
 if binary is None:
@@ -80,56 +135,171 @@ class ELFFlags(object):
 
 class ELF(object):
     def __init__(self, binary):
+        self.__format = "ELF"
         self.__binary = bytearray(binary)
         self.__parseHeader()
 
     def __parseHeader(self):
-        self.__parse_e_ident()
-        self.__setArch()
-        print "Arch is %s" % self.Arch
+        self.__parseFileHeader()
+        self.__parseProgramHeader()
+        self.__parseSectionHeader()
 
-    def __parse_e_ident(self):
+        """check the information from header"""
+        print "Endian is %s" % self.Endian
+        print "EntryPoint is %s" % hex(self.EntryPoint)
+        print "ArchMode is %d" % self.ArchMode
+
+    """parse File Header, Program Header, Section Header"""
+    def __parseFileHeader(self):
 
         # check whether is ELF file
         e_ident = self.__binary[:16]
         if e_ident[1:4] != "ELF":
-            return False
+            return "Not ELF file"
+
+        self.Endian = e_ident[ELFFlags.ELF_DATA]
+        self.ArchMode = e_ident[ELFFlags.ELF_CLASS]
 
         # check is 32 bit or 64 bit
-        if e_ident[ELFFlags.ELF_CLASS] == ELFFlags.EI_CLASS_32:
+        if self.ArchMode == 32:
             #print "This is 32 bit ELF file"
-            self.__Header = ELF32_Little.from_buffer_copy(self.__binary)
+            self.__Header = ELF32_Little_FH.from_buffer_copy(self.__binary)
 
-        elif e_ident[ELFFlags.ELF_CLASS] == ELFFlags.EI_CLASS_64:
+        elif self.ArchMode == CS_MODE_64:
             print "This is 64 bit ELF file"
+            sys.exit(0)
 
         # choose how to parse binary
         # 32 bit little endian
-        if e_ident[ELFFlags.ELF_CLASS] == ELFFlags.EI_CLASS_32 \
-            and e_ident[ELFFlags.ELF_DATA] == ELFFlags.EI_DATA_Little:
-            self.__Header = ELF32_Little.from_buffer_copy(self.__binary)
-            print "32 bit little endian ELF file"
+        if self.ArchMode == CS_MODE_32:
+            if self.Endian == "little":
+                self.__Header = ELF32_Little_FH.from_buffer_copy(self.__binary)
+                #print "32 bit little endian ELF file"
 
         # 32 bit big endian
-        elif e_ident[ELFFlags.ELF_CLASS] == ELFFlags.EI_CLASS_32 \
-            and e_ident[ELFFlags.ELF_DATA] == ELFFlags.EI_DATA_Big:
-            self._Header = ELF32_Big.from_buffer_copy(self.__binary)
-            print "32 bit endian ELF file"
+            elif self.Endian == "Big":
+                self._Header = ELF32_Big_FH.from_buffer_copy(self.__binary)
+                #print "32 bit endian ELF file"
 
-    def __setArch(self):
-        machine_code = self.__Header.e_machine
-        arch = {
-                  0x3  :   "x86",   
-                  0x8  :   "MIPS",  
-                  0x28 :   "ARM",   
-                  0x32 :   "IA64",  
-                  0x3E :   "x86-64"
-                }
-        self.__Arch = arch.setdefault(machine_code, "unknow")
-        #print "Arch is %s" %  self.__Arch
-    
+        self.Arch = self.__Header.e_machine
+        self.EntryPoint = self.__Header.e_entry
+
+    """ 
+        this part(getExecSections, getDataSections) from https://github.com/JonathanSalwan/ROPgadget/blob/master/ropgadget/loaders/elf.py, I need some time to understand
+        information about flags from https://docs.oracle.com/cd/E19683-01/816-1386/6m7qcoblk/index.html#chapter6-tbl-39"""
+    def getExecSections(self):
+        sections = []
+        for section in self.__PH:
+            # PF_X is 0x1 (excute)
+            if section.p_flags & 0x1:
+                sections.append({
+                    "vaddr" : section.p_vaddr,
+                    "offset" : section.p_offset,
+                    "size" : section.p_memsz,
+                    "code" : bytes(self.__binary[section.p_offset:section.p_offset+section.p_memsz])
+                    })
+        return sections
+
+    def getDataSections(self):
+        sections = []
+        for section in self.__SH:
+            if not (section.sh_flags & 0x4) and (section.sh_flags & 0x2):
+                sections.append({
+                    "name" : section.sh_name,
+                    "offset" : section.sh_offset,
+                    "size" : section.sh_size,
+                    "vaddr" : section.sh_addr,
+                    "codes" : str(self.__binary[section.sh_offset:section.sh_offset+section.sh_size])
+                    })
+        return sections
+
+    def __parseProgramHeader(self):
+        self.__PH = []
+        pos = self.__binary[self.__Header.e_phoff:]
+        e_phentsize = self.__Header.e_phentsize
+        e_phnum = self.__Header.e_phnum
+
+        """
+            e_phnum record how many program header entrys
+            e_phentsize record size of each program header entry
+        """
+
+        for _ in xrange(e_phnum):
+            if self.ArchMode == CS_MODE_32:
+                if self.Endian == "little":
+                    ph = ELF32_Little_PH.from_buffer_copy(pos)
+                elif self.Endian == "big":
+                    ph = ELF32_Little_PH.from_buffer_copy(pos)
+                self.__PH.append(ph)
+                pos = pos[e_phentsize:]
+
+    def __parseSectionHeader(self):
+        self.__SH = []
+        e_shnum = self.__Header.e_shnum
+        pos = self.__binary[self.__Header.e_shoff:]
+        e_shentsize = self.__Header.e_shentsize
+
+        """
+            e_shnum record the numbers of section headers's entry
+            e_shentize record the size of each section Header
+        """
+
+        for _ in xrange(e_shnum):
+            if self.ArchMode == CS_MODE_32:
+                if self.Endian == "little":
+                    sh = ELF32_Little_SH.from_buffer_copy(pos)
+                elif self.Endian == "big":
+                    sh = ELF32_Big_SH.from_buffer_copy(pos)
+            pos = pos[e_shentsize:]
+
+    """define some usually use attribute"""
+
     @property
     def Arch(self):
         return self.__Arch
+
+    @Arch.setter
+    def Arch(self, machine_code):
+        arch = {
+                  0x3  :   CS_ARCH_X86,
+                  0x28 :   CS_ARCH_ARM,
+                  0x3E :   CS_ARCH_X86
+                }
+        self.__Arch = arch.setdefault(machine_code)
+        #print "Arch is %s" %  self.__Arch
+
+    @property
+    def EntryPoint(self):
+        return self.__entryPoint
+
+    @EntryPoint.setter
+    def EntryPoint(self, entry):
+        self.__entryPoint = entry
+
+    @property
+    def Endian(self):
+        return self.__endian
+
+    @Endian.setter
+    def Endian(self, flag):
+        self.__endian = {
+                ELFFlags.EI_DATA_Big : "big",
+                ELFFlags.EI_DATA_Little: "little"
+               }.setdefault(flag, "unknow")
+
+    @property
+    def ArchMode(self):
+        return self.__ArchMode
+
+    @ArchMode.setter
+    def ArchMode(self, code):
+        self.__ArchMode = {
+                ELFFlags.EI_CLASS_32 : 32,
+                ELFFlags.EI_CLASS_64 : 64
+                }.setdefault(code, 32)
+
+    @property
+    def Format(self):
+        return self.__format
 
 elf = ELF(binary)
