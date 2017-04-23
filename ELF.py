@@ -173,7 +173,7 @@ class ELF(object):
                     "vaddr" : section.p_vaddr,
                     "offset" : section.p_offset,
                     "size" : section.p_memsz,
-                    "code" : bytes(self.__binary[section.p_offset:section.p_offset+section.p_memsz])
+                    "codes" : bytes(self.__binary[section.p_offset:section.p_offset+section.p_memsz])
                     })
         return sections
 
@@ -227,6 +227,7 @@ class ELF(object):
                     sh = ELF32_Little_SH.from_buffer_copy(pos)
                 elif self.Endian == "big":
                     sh = ELF32_Big_SH.from_buffer_copy(pos)
+            self.__SH.append(sh)
             pos = pos[e_shentsize:]
 
     """define some usually use attribute"""
@@ -271,8 +272,8 @@ class ELF(object):
     @ArchMode.setter
     def ArchMode(self, code):
         self.__ArchMode = {
-                ELFFlags.EI_CLASS_32 : 32,
-                ELFFlags.EI_CLASS_64 : 64
+                ELFFlags.EI_CLASS_32 : CS_MODE_32,
+                ELFFlags.EI_CLASS_64 : CS_MODE_64
                 }.setdefault(code, 32)
 
     @property
