@@ -223,13 +223,12 @@ class ELF(object):
             e_phnum record how many program header entrys
             e_phentsize record size of each program header entry
         """
-
         for _ in xrange(e_phnum):
             if self.ArchMode == CS_MODE_32:
                 if self.Endian == "little":
                     ph = ELF32_Little_PH.from_buffer_copy(pos)
                 elif self.Endian == "big":
-                    ph = ELF32_Little_PH.from_buffer_copy(pos)
+                    ph = ELF31_Big_PH.from_buffer_copy(pos)
                 self.__PH.append(ph)
                 pos = pos[e_phentsize:]
 
@@ -250,7 +249,8 @@ class ELF(object):
                     sh = ELF32_Little_SH.from_buffer_copy(pos)
                 elif self.Endian == "big":
                     sh = ELF32_Big_SH.from_buffer_copy(pos)
-            pos = pos[e_shentsize:]
+                self.__SH.append(sh)
+                pos = pos[e_shentsize:]
 
     """define some usually use attribute"""
 
@@ -294,8 +294,8 @@ class ELF(object):
     @ArchMode.setter
     def ArchMode(self, code):
         self.__ArchMode = {
-                ELFFlags.EI_CLASS_32 : 32,
-                ELFFlags.EI_CLASS_64 : 64
+                ELFFlags.EI_CLASS_32 : CS_MODE_32,
+                ELFFlags.EI_CLASS_64 : CS_MODE_64
                 }.setdefault(code, 32)
 
     @property
