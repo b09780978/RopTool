@@ -1,2 +1,2 @@
 #!/usr/bin/env sh
-./main.py a.o
+python gadgetsFinder.py a.o
