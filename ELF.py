@@ -2,24 +2,6 @@
 import sys
 from ctypes import *
 from capstone import *
-import argparse
-
-parser = argparse.ArgumentParser(description="ELF parser tool is use to parse ELF 32 bit file")
-
-parser.add_argument("target", nargs="?", type=str, help="Target is the ELF 32 file want to parse.")
-
-args = parser.parse_args()
-
-if args.target == None:
-    parser.print_help()
-    sys.exit(1)
-
-try:
-    f = open(args.target, "rb")
-    binary = f.read()
-except IOError:
-    binary = None
-f.close()
 
 """define format of Header"""
 
@@ -113,11 +95,6 @@ class ELF32_Big_SH(BigEndianStructure):
             ("sh_entsize", c_uint)
             ]
 
-if binary is None:
-    print "[+] Read file fail!"
-    sys.exit(1)
-
-
 class ELFFlags(object):
     ELF_CLASS        =  0x4
     ELF_DATA         =  0x5
@@ -145,9 +122,9 @@ class ELF(object):
         self.__parseSectionHeader()
 
         """check the information from header"""
-        print "Endian is %s" % self.Endian
-        print "EntryPoint is %s" % hex(self.EntryPoint)
-        print "ArchMode is %d" % self.ArchMode
+        #print "Endian is %s" % self.Endian
+        #print "EntryPoint is %s" % hex(self.EntryPoint)
+        #print "ArchMode is %d" % self.ArchMode
 
     """parse File Header, Program Header, Section Header"""
     def __parseFileHeader(self):
@@ -301,5 +278,3 @@ class ELF(object):
     @property
     def Format(self):
         return self.__format
-
-elf = ELF(binary)
