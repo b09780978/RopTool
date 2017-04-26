@@ -1,20 +1,15 @@
 #include<stdio.h>
-#include<string.h>
 
-void showBuf(char *s);
+void showBuf();
 
 int main()
 {
-    char buf[87];
-    gets(buf);
-    showBuf(buf);
-
+    showBuf();
     return 0;
 }
 
-void showBuf(char *s)
+void showBuf()
 {
-    char data[87];
-    strcpy(data, s);
-    printf("%s\n", data);
+    char buf[87];
+    gets(buf);
 }
