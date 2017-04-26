@@ -49,10 +49,12 @@ class GadgetFinder(object):
             self.__gadgets = [
                    [b"\xc3", 1, 1],             # ret(near)
                    [b"\xcb", 1, 1],             # ret(far)
-                   [b"\xc2{\x00-\xff}", 3, 1],  # ret imm16(near)
-                   [b"\xca{\x00-\xff}", 3, 1],  # ret imm16(far)
+                   #[b"\xc2{\x00-\xff}", 3, 1],  # ret imm16(near)
+                   #[b"\xca{\x00-\xff}", 3, 1],  # ret imm16(far)
                    [b"\x0f\x05", 2, 1],         # syscall
-                   [b"\xcd\x80", 2, 1]          # int 0x80
+                   [b"\xcd\x80", 2, 1],         # int 0x80
+                   [b"\xcd\x80\xc3", 3, 1],     # int 0x80; ret
+                   [b"\x0f\x05\xc3", 3, 1],     # syscall; ret
                    ]
         else:
             print "[-] Not support file format"
