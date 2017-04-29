@@ -1,2 +1,2 @@
 #!/usr/bin/env sh
-python gadgetsFinder.py src32
+python main.py src32

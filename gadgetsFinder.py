@@ -1,16 +1,8 @@
-import argparse
 import binascii
 import sys
 import re
 from capstone import *
 from ELF import *
-
-parser = argparse.ArgumentParser(description="This is use to try what I do")
-
-parser.add_argument("target", nargs="?", type=str, help="Target to execute")
-
-args = parser.parse_args()
-target = args.target
 
 class GadgetFinder(object):
     def __init__(self, target_file, rop_length = 10):
@@ -96,10 +88,10 @@ class GadgetFinder(object):
                                         }]
        return rets
 
-    def getGadgets(self):
+    def showGadgets(self):
         gadgets = self.findGadgets()
         for g in gadgets:
             print "0x%08x:\t%s" % (g["vaddr"], g["gadgets"])
 
-finder = GadgetFinder(target)
-finder.getGadgets()
+    def getGadgets(self):
+        return self.findGadgets()
