@@ -45,8 +45,6 @@ class GadgetFinder(object):
                    #[b"\xca{\x00-\xff}", 3, 1],  # ret imm16(far)
                    [b"\x0f\x05", 2, 1],         # syscall
                    [b"\xcd\x80", 2, 1],         # int 0x80
-                   [b"\xcd\x80\xc3", 3, 1],     # int 0x80; ret
-                   [b"\x0f\x05\xc3", 3, 1],     # syscall; ret
                    ]
         else:
             print "[-] Not support file format"
@@ -59,39 +57,48 @@ class GadgetFinder(object):
         return self.__binary.getDataSections()
 
     def findGadgets(self):
-       decoder = Cs(self.__binary.Arch, self.__binary.ArchMode)
-       PATTERN = 0
-       PATTERN_SIZE = 1
-       CODE_SIZE = 2
-       depth = self.__length
-       rets = []
+        decoder = Cs(self.__binary.Arch, self.__binary.ArchMode)
+        PATTERN = 0
+        PATTERN_SIZE = 1
+        CODE_SIZE = 2
+        depth = self.__length
+        rets = []
+        checkDuplicate = set()  # use to record whether the gadgets is exist
 
-       for section in self.getExecSections():
-           code = section["codes"]
-           vaddr = section["vaddr"]
-           for gad in self.__gadgets:
-               gadgets = [ p.start() for p in re.finditer(gad[PATTERN], code)]
-               for pos in gadgets:
-                   for deep in xrange(depth):
-                       if (vaddr+pos-gad[CODE_SIZE]*deep) % gad[CODE_SIZE] == 0:
-                            newCode = decoder.disasm(code[pos-gad[CODE_SIZE]*deep:pos+gad[PATTERN_SIZE]], 0)
-                            ret = ""
-                            for line in newCode:
-                                ret += (line.mnemonic+" "+line.op_str+" ; ").replace("  ", " ")
+        for section in self.getExecSections():
+            code = section["codes"]
+            vaddr = section["vaddr"]
+            for gad in self.__gadgets:
+                gadgets = [ p.start() for p in re.finditer(gad[PATTERN], code)]
+                for pos in gadgets:
+                    for deep in xrange(depth):
+                        if (vaddr+pos-gad[CODE_SIZE]*deep) % gad[CODE_SIZE] == 0:
+                             newCode = decoder.disasm(code[pos-gad[CODE_SIZE]*deep:pos+gad[PATTERN_SIZE]], 0)
+                             ret = ""
+                             for line in newCode:
+                                 ret += (line.mnemonic+" "+line.op_str+" ; ").replace("  ", " ")
 
-                            if  re.search(gad[PATTERN], line.bytes) is not None and len(ret)>0:
-                                start = vaddr+pos-deep*gad[PATTERN_SIZE]
-                                rets += [{
-                                        "vaddr" : start,
-                                        "gadgets" : ret,
-                                        "bytes" : code[pos-deep*gad[CODE_SIZE]:pos+gad[PATTERN_SIZE]]
-                                        }]
-       return rets
+                             if vaddr+pos-deep*gad[PATTERN_SIZE] in checkDuplicate:
+                                 continue
+
+                             if  re.search(gad[PATTERN], line.bytes) is not None and len(ret)>0:
+                                 start = vaddr+pos-deep*gad[PATTERN_SIZE]
+                                 checkDuplicate.add(vaddr)
+                                 rets += [{
+                                         "vaddr" : start,
+                                         "gadgets" : ret[:-3],
+                                         "bytes" : code[pos-deep*gad[CODE_SIZE]:pos+gad[PATTERN_SIZE]],
+                                         }]
+
+        rets.sort(key=lambda l: len(l["bytes"]))
+        return rets
+
 
     def showGadgets(self):
         gadgets = self.findGadgets()
         for g in gadgets:
             print "0x%08x:\t%s" % (g["vaddr"], g["gadgets"])
+        print "total:", len(gadgets)
 
     def getGadgets(self):
         return self.findGadgets()
