@@ -144,7 +144,7 @@ class ELF(object):
 
         elif self.ArchMode == CS_MODE_64:
             print "This is 64 bit ELF file"
-            sys.exit(0)
+            self.__Header = None
 
         # choose how to parse binary
         # 32 bit little endian
@@ -162,7 +162,6 @@ class ELF(object):
         self.EntryPoint = self.__Header.e_entry
 
     """ 
-        this part(getExecSections, getDataSections) from https://github.com/JonathanSalwan/ROPgadget/blob/master/ropgadget/loaders/elf.py, I need some time to understand
         information about flags from https://docs.oracle.com/cd/E19683-01/816-1386/6m7qcoblk/index.html#chapter6-tbl-39"""
     def getExecSections(self):
         sections = []
