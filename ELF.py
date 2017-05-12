@@ -5,7 +5,7 @@ from capstone import *
 
 """define format of Header"""
 
-# define elf file header(32bit)
+# define ELF file header(32bit)
 # from https://en.wikipedia.org/wiki/Executable_and_Linkable_Format
 class ELF32_Little_FH(LittleEndianStructure):
     _fields_ = [
@@ -43,6 +43,8 @@ class ELF32_Big_FH(BigEndianStructure):
             ("e_shstrndx", c_ushort),
             ]
 
+# define ELF program header(32bit)
+
 class ELF32_Little_PH(LittleEndianStructure):
     _fields_ = [
             ("p_type", c_uint),
@@ -66,6 +68,8 @@ class ELF32_Big_PH(BigEndianStructure):
             ("p_flags", c_uint),
             ("p_align", c_uint)
             ]
+
+# define ELF segment Header(32bit)
 
 class ELF32_Little_SH(LittleEndianStructure):
     _fields_ = [
@@ -126,20 +130,14 @@ class ELF(object):
         #print "EntryPoint is %s" % hex(self.EntryPoint)
         #print "ArchMode is %d" % self.ArchMode
 
-    """parse File Header, Program Header, Section Header"""
+    #parse File Header, Program Header, Section Header
     def __parseFileHeader(self):
-
-        # check whether is ELF file
-        e_ident = self.__binary[:16]
-        if e_ident[1:4] != "ELF":
-            return "Not ELF file"
 
         self.Endian = e_ident[ELFFlags.ELF_DATA]
         self.ArchMode = e_ident[ELFFlags.ELF_CLASS]
 
         # check is 32 bit or 64 bit
         if self.ArchMode == 32:
-            #print "This is 32 bit ELF file"
             self.__Header = ELF32_Little_FH.from_buffer_copy(self.__binary)
 
         elif self.ArchMode == CS_MODE_64:
@@ -151,18 +149,15 @@ class ELF(object):
         if self.ArchMode == CS_MODE_32:
             if self.Endian == "little":
                 self.__Header = ELF32_Little_FH.from_buffer_copy(self.__binary)
-                #print "32 bit little endian ELF file"
 
         # 32 bit big endian
             elif self.Endian == "Big":
                 self._Header = ELF32_Big_FH.from_buffer_copy(self.__binary)
-                #print "32 bit endian ELF file"
 
         self.Arch = self.__Header.e_machine
         self.EntryPoint = self.__Header.e_entry
 
-    """ 
-        information about flags from https://docs.oracle.com/cd/E19683-01/816-1386/6m7qcoblk/index.html#chapter6-tbl-39"""
+    # information about flags from https://docs.oracle.com/cd/E19683-01/816-1386/6m7qcoblk/index.html#chapter6-tbl-39
     def getExecSections(self):
         sections = []
         for section in self.__PH:
