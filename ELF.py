@@ -133,6 +133,7 @@ class ELF(object):
     #parse File Header, Program Header, Section Header
     def __parseFileHeader(self):
 
+        e_ident = self.__binary[:16]
         self.Endian = e_ident[ELFFlags.ELF_DATA]
         self.ArchMode = e_ident[ELFFlags.ELF_CLASS]
 

@@ -10,7 +10,7 @@ class RopChainer(object):
         gadgets = []
         for g in self.__gadgets:
             codes = g["gadgets"].split(" ; ")
-            if codes[-1] == "int 0x80":
+            if codes[-1] == pattern:
                 if len(codes)==1:
                     gadgets.append({"vaddr": g["vaddr"]})
                 else:
