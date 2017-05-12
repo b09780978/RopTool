@@ -2,7 +2,7 @@
 from RopChainer import *
 
 class ScriptMaker(object):
-    tab = " " * 4
+    tab = " " * 4 # set tab
 
     def __init__(self, gadget):
         self.__Gadget = gadget
