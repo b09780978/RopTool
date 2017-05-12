@@ -5,10 +5,15 @@ from capstone import *
 from ELF import *
 
 class Gadget(object):
+    """
+        First, get binary file and parse,
+        second, find all gadget(with ret or syscall),
+        finally, return all gadgets
+    """
     def __init__(self, target_file, rop_length = 10):
         self.__Rawbinary = self.__get_binary(target_file)
         self.__gadgets = self.setGadgets()
-        self.__length = rop_length
+        self.__length = rop_length # set search length
 
         self.setGadgets()
 
@@ -25,6 +30,7 @@ class Gadget(object):
         self.__parseFileFormat()
 
     def __parseFileFormat(self):
+        # ELF file
         if self.__Rawbinary[:4] == binascii.unhexlify(b"7f454c46"):
             self.__binary = ELF(self.__Rawbinary)
         else:
@@ -62,7 +68,7 @@ class Gadget(object):
         PATTERN_SIZE = 1
         CODE_SIZE = 2
         depth = self.__length
-        rets = []
+        rets = [] # store gadgets
         checkDuplicate = set()  # use to record whether the gadgets is exist
 
         for section in self.getExecSections():
