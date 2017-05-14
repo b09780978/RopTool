@@ -177,12 +177,13 @@ class ELF(object):
         for section in self.__SH:
             if not (section.sh_flags & 0x4) and (section.sh_flags & 0x2):
                 sections.append({
-                    "name" : section.sh_name,
+                    "name" : section.str_name,
                     "offset" : section.sh_offset,
                     "size" : section.sh_size,
                     "vaddr" : section.sh_addr,
                     "codes" : str(self.__binary[section.sh_offset:section.sh_offset+section.sh_size])
                     })
+
         return sections
 
     def __parseProgramHeader(self):
@@ -224,6 +225,12 @@ class ELF(object):
                     sh = ELF32_Big_SH.from_buffer_copy(pos)
             self.__SH.append(sh)
             pos = pos[e_shentsize:]
+
+        # set section name
+        if self.__Header.e_shstrndx:
+            table = str(self.__binary[(self.__SH[self.__Header.e_shstrndx].sh_offset): ])
+            for entry in xrange(e_shnum):
+                self.__SH[entry].str_name = table[self.__SH[entry].sh_name: ].split("\0")[0]
 
     """define some usually use attribute"""
 
