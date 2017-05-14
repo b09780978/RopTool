@@ -6,6 +6,7 @@ class RopChainer(object):
         #gadgets.reverse()
         self.__gadgets = gadgets
 
+    # find gadget can make syscall, accept pattern is (nop ;)* int 0x80
     def searchSyscall(self, pattern="int 0x80"):
         gadgets = []
         for g in self.__gadgets:
@@ -60,3 +61,25 @@ class RopChainer(object):
 
         return gadgets
 
+    # make a generator to put /bin/sh in stack
+    def searchShellGadgets(self):
+        pattern = "mov dword ptr \[(?P<dst>((eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)))\], (?P<src>((eax)|(ebx)|(ecx)|(edx)|(esi)|(edi)))$"
+
+        for g in self.__gadgets:
+            codes = g["gadgets"].split(" ; ")
+            # check whether with ret instruction
+            check = codes[-1]
+            if check!="ret":
+                continue
+            code = codes[0]
+            p = re.search(pattern, code)
+            if p:
+                find = True
+                for check in codes[1:-1]:
+                    if check.split()[0]=="pop" or check.split()[0] == "ret":
+                        find = False
+                        break
+
+                if find:
+                    yield [g, p.group("dst"), p.group("src")]
+        return
