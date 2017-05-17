@@ -17,5 +17,5 @@ if target is None:
     sys.exit(0)
 
 gadget = Gadget(target)
-s = ScriptMaker(gadget, 1)
+s = ScriptMaker(gadget, 99, 1)
 s.make_script()
